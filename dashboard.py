@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 # Pandas, Plotly, and NumPy modules
 import dash
 from dash import dcc
@@ -183,10 +180,3 @@ app.layout = dash_layout()
 
 if __name__ == '__main__':
     app.run_server(debug=False)
-
-
-# In[ ]:
-
-
-
-
