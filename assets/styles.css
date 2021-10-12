@@ -48,4 +48,5 @@ h2 {
 .chart-container {
     display:flex;
     gap:100px;
+    flex-wrap:wrap;
 }
