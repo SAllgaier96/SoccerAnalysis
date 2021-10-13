@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
+# ipydeps installs libraries if not already done
+import ipydeps
+ipydeps.pip(['dash'
+             ,'gunicorn'
+             ,'numpy'
+             ,'pandas'
+             ,'plotly'
+             ], verbose = True)
 
 # Pandas, Plotly, and NumPy modules
 import dash
