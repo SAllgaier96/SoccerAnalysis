@@ -1,11 +1,9 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 # Pandas, Plotly, and NumPy modules
 import dash
 from dash import dcc
 from dash import html
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 
 # Google Sheets Modules
@@ -17,8 +15,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 import json
 import sys
 
-# Shift Number DO NOT CHANGE
-SHIFT_NUMBER = 4
+SHIFT_NUMBER = int(input('Enter Pin: '))
+PLAYER_ID = int(input('Enter Player ID: '))
 
 # Shift Encryption
 def encrypt(str, shift):
@@ -43,7 +41,6 @@ def encryptJson(filename, shift):
     file.seek(0)
     file.write(json.dumps(data))
     file.truncate()
-    print(data)
     
 # Decrypts the JSON file
 def decryptJson(filename, shift):
@@ -54,20 +51,20 @@ def decryptJson(filename, shift):
     file.seek(0)
     file.write(json.dumps(data))
     file.truncate()
-    print(data)
 
 # Decrypt the creds.json file at the before the data pull
-decryptJson('creds2.json', SHIFT_NUMBER)
+decryptJson('creds.json', SHIFT_NUMBER)
     
 # Spreadsheet Connection
 try:
     print('Starting Data Pull...')
     WORKSHEET_ID = '1-kUlYLeDEQyzw2PYnLn6quq7kFYJbduI_Zrk_bQ7_9A'
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    path = 'assets/creds2.json'
+    path = 'assets/creds.json'
     google_key_file = path
     credentials = ServiceAccountCredentials.from_json_keyfile_name(google_key_file, scope)
     gc = gspread.authorize(credentials)
+    
     # Opening the workbook
     workbook = gc.open_by_key(WORKSHEET_ID)
 
@@ -75,19 +72,65 @@ try:
     AnalysisDashboard = workbook.worksheet('AnalysisDashboard')
     PlayerOllie = workbook.worksheet('PlayerOllie')
     TeamOllie = workbook.worksheet('TeamOllie')
+    RosterOverview = workbook.worksheet('RosterOverview')
+    
     print('Data Pull SUCCESS')
-except:
+except Exception as e:
     print('Data Pull FAILED')
     
-#Encrypt the creds.json file once finished with the data pull
-encryptJson('creds2.json', SHIFT_NUMBER)
+    
+# Encrypt the creds.json file once finished with the data pull
+encryptJson('creds.json', SHIFT_NUMBER)
 
-# Returns the layout of the Dash Plotly Dashboard
+# Set the Player ID
+try:
+    AnalysisDashboard.update('E4', PLAYER_ID)
+except:
+    pass
+
+# Setup Graphs and Charts
+# Fix Spreadsheet Range List Format
+radar_stats = AnalysisDashboard.get('AR2:AR6')
+for i in range(len(radar_stats)):
+    radar_stats[i] = float(radar_stats[i].pop(0))
+# Radar Chart
+fig_radar = go.Figure()
+fig_radar.add_traces(go.Scatterpolar(
+    r=radar_stats,
+    theta=AnalysisDashboard.get('AQ2:AQ6'),
+    fill='toself',
+    name='Player Data'
+))
+fig_radar.update_layout(
+    polar=dict(
+        radialaxis=dict(
+            visible=True,
+            range=[0, 10]
+        )
+    ),
+    showlegend=False
+)
+# Line Charts
+key_passes_stats = AnalysisDashboard.get('AA3:AA14')
+key_passes_stats_x = AnalysisDashboard.get('W3:W14')
+for i in range(len(key_passes_stats)):
+    key_passes_stats[i] = float(key_passes_stats[i].pop(0))
+    key_passes_stats_x[i] = key_passes_stats_x[i].pop(0)
+fig_line = go.Figure()
+print(key_passes_stats)
+print(key_passes_stats_x)
+fig_line.add_trace(go.Scatter(
+    x=key_passes_stats_x,
+    y=key_passes_stats,
+    line=dict(color='firebrick', width=4)
+))
+
+# Layout of Dash Plotly Dashboard
 def dash_layout():
     return html.Div(className='body', children=[
                 html.Div(className='title', children=[
                     html.H1(className='headers', children=[
-                        '[Insert Player Name Here]'
+                        AnalysisDashboard.acell('A6').value
                     ]),
                     html.H2(className='headers', children=[
                         'Player Report'
@@ -103,19 +146,17 @@ def dash_layout():
                                 html.Li('Goals: '),
                                 html.Li('Shots: '),
                                 html.Li('Shots on Goal: '),
-                                html.Li('Assists: '),
-                                html.Li('Passes: '),
+                                html.Li('Assists & Key Passes: '),
                                 html.Li('Success Rate with Ball: '),
                                 html.Li('Turnovers: ')
                             ]),
                             html.Ul(className='stats-numbers', children=[
-                                html.Li('1'),
-                                html.Li('2'),
-                                html.Li('3'),
-                                html.Li('4'),
-                                html.Li('5'),
-                                html.Li('60%'),
-                                html.Li('700')
+                                html.Li(AnalysisDashboard.acell('C8').value),
+                                html.Li(AnalysisDashboard.acell('C9').value),
+                                html.Li(AnalysisDashboard.acell('C10').value),
+                                html.Li(AnalysisDashboard.acell('C11').value),
+                                html.Li(AnalysisDashboard.acell('C12').value),
+                                html.Li(AnalysisDashboard.acell('C13').value)
                             ])
                         ])
                     ]),
@@ -131,10 +172,10 @@ def dash_layout():
                                 html.Li('Red Cards: ')
                             ]),
                             html.Ul(className='stats-numbers', children=[
-                                html.Li('1'),
-                                html.Li('2'),
-                                html.Li('30%'),
-                                html.Li('400')
+                                html.Li(AnalysisDashboard.acell('E8').value),
+                                html.Li(AnalysisDashboard.acell('E9').value),
+                                html.Li(AnalysisDashboard.acell('E10').value),
+                                html.Li(AnalysisDashboard.acell('E11').value)
                             ])
                         ])
                     ]),
@@ -149,27 +190,19 @@ def dash_layout():
                                 html.Li('Two Mile (seconds): ')
                             ]),
                             html.Ul(className='stats-numbers', children=[
-                                html.Li('1'),
-                                html.Li('20%'),
-                                html.Li('300')
+                                html.Li(AnalysisDashboard.acell('G8').value),
+                                html.Li(AnalysisDashboard.acell('G9').value),
+                                html.Li(AnalysisDashboard.acell('G10').value)
                             ])
                         ])
                     ])
                 ]),
                 html.Div(className='chart-container', children=[
-                    html.Div(className='radial', children=[
-                        html.Div(className='radial-chart', children=[
-                            html.P('Insert Radial Here')
-                        ]),
-                        html.Div(className='radial-stats', children=[
-                            html.P('Insert Radial Stats Here')
-                        ])
-                    ]),
-                    html.Div(className='position', children=[
-                        html.P('Insert Position Here')
+                    html.Div(className='radar-chart', children=[
+                        dcc.Graph(className='chart', figure=fig_radar)
                     ]),
                     html.Div(className='line-chart', children=[
-                        html.P('Insert Line Here')
+                        dcc.Graph(className='chart', figure=fig_line)
                     ])
                 ])
             ])
